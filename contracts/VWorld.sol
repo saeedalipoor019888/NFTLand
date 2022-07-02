@@ -12,7 +12,7 @@ contract VWorld is ERC721URIStorage, Ownable {
     Counters.Counter public landIDTracker;
 
     // maximum lands that we can mint
-    uint256 maxID = 10;
+    uint256 maxID = 3;
 
     event LandItemCreated(
         uint256 indexed landID,
@@ -92,6 +92,9 @@ contract VWorld is ERC721URIStorage, Ownable {
     }
 
     function createMarketSale(uint256 _landID) public payable {
+        // check that land id is valid
+        require(_landID <= landIDTracker.current(), "invalid land item id");
+
         // we find land item price by id from mapping
         uint256 price = IDToLandItem[_landID].price;
         // we find land seller by id from mapping
