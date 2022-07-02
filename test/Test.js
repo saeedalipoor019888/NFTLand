@@ -122,7 +122,7 @@ describe("VWorld", function () {
       // get array of owners for land 1
       const ownershipHistoryArray = await VWorldContract.getLandOwners(1);
       // owner 1 is deployer address because of in mintLand function we pushed deployer address as first owner
-      expect(ownershipHistoryArray[0]).to.equal(deployer.address);
+      expect(ownershipHistoryArray[0]).to.equal(VWorldContract.address);
       // owner 2 is addr1 address
       expect(ownershipHistoryArray[1]).to.equal(addr1.address);
     });

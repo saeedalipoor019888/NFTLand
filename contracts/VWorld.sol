@@ -28,15 +28,12 @@ contract VWorld is ERC721URIStorage, Ownable {
         address indexed buyer
     );
 
-    // using mapping to track history of owners for any land
-    mapping(uint256 => address[]) landOwners;
-
     // market struct for land item
     // we can add owner history as array in this struct
     struct LandItem {
         uint256 landID;
         address payable seller;
-        address payable owner;
+        address payable[] owner;
         uint256 price;
         bool sold;
     }
@@ -65,9 +62,6 @@ contract VWorld is ERC721URIStorage, Ownable {
         // set URI for new minted land
         _setTokenURI(_landID, _landURI);
 
-        //push msg sender as owner to item owners array
-        landOwners[_landID].push(msg.sender);
-
         // list land item to sell directly after mint
         createMarketItem(_landID, 1 ether);
     }
@@ -77,13 +71,14 @@ contract VWorld is ERC721URIStorage, Ownable {
         require(_price > 0, "Price must be at least 1 wei");
 
         // we add land item to mapping by id
-        IDToLandItem[_landID] = LandItem(
-            _landID,
-            payable(msg.sender),
-            payable(address(this)),
-            _price,
-            false
-        );
+        LandItem memory _newLandItem;
+        _newLandItem.landID = _landID;
+        _newLandItem.seller = payable(msg.sender);
+        _newLandItem.price = _price;
+        _newLandItem.sold = false;
+
+        IDToLandItem[_landID] = _newLandItem;
+        IDToLandItem[_landID].owner.push(payable(address(this)));
 
         // we transfer land item ownership from msg sender to marketplace
         _transfer(msg.sender, address(this), _landID);
@@ -104,10 +99,7 @@ contract VWorld is ERC721URIStorage, Ownable {
         require(msg.value == price, "submit the asking price");
 
         // change land item owner to msg.sender / buyer
-        IDToLandItem[_landID].owner = payable(msg.sender);
-
-        //push msg sender as owner to item owners array
-        landOwners[_landID].push(msg.sender);
+        IDToLandItem[_landID].owner.push(payable(msg.sender));
 
         // change land item sold to true
         IDToLandItem[_landID].sold = true;
@@ -140,8 +132,8 @@ contract VWorld is ERC721URIStorage, Ownable {
     function getLandOwners(uint256 _landID)
         external
         view
-        returns (address[] memory)
+        returns (address payable[] memory)
     {
-        return landOwners[_landID];
+        return IDToLandItem[_landID].owner;
     }
 }
