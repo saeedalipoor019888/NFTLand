@@ -60,7 +60,7 @@ describe("VWorld", function () {
     });
   });
 
-  describe("Minting 3 NFT and list it to market by deployer !", () => {
+  describe("Minting 3 NFT and list it to market by deployer ! we use details of X , Y Area", () => {
     it("Should track minted NFTs", async () => {
       const uriArray = [
         [1, 2, 3],
@@ -116,6 +116,23 @@ describe("VWorld", function () {
           addr1.address
         );
 
+      // now check NFT land #1
+      const landItem = await VWorldContract.getMintedNFTLandDetails(1);
+      // check item id #1
+      expect(landItem[0]).to.equal(1);
+      // check seller to 0
+      expect(landItem[1]).to.equal(
+        "0x0000000000000000000000000000000000000000"
+      );
+      // check owner array length to 2 index !
+      expect(landItem[2].length).to.equal(2);
+      // check owners index 0 to marketplace address
+      expect(landItem[2][0]).to.equal(VWorldContract.address);
+      // check owners index 1 to addr 1 address
+      expect(landItem[2][1]).to.equal(addr1.address);
+      // check item price to 1 ether
+      expect(landItem[3]).to.equal(ethers.utils.parseEther("1"));
+
       // Now we can check ownership history of lands #1
       expect(await VWorldContract.ownerOf(1)).to.equal(addr1.address);
 
@@ -128,7 +145,53 @@ describe("VWorld", function () {
     });
   });
 
-  describe("in this section we want test cases that user will get revert", () => {
+  describe("buy NFT land by addr1, and again list it for sell in marketplace", () => {
+    beforeEach(async () => {
+      // mint and list 1 NFT by deployer in marketplace
+      await VWorldContract.mintLand(simpleURI);
+
+      // buy minted land by addr 1
+      await VWorldContract.connect(addr1).createMarketSale(1, {
+        value: ethers.utils.parseEther("1"),
+      });
+    });
+
+    it("addr1 now list item again for sale in marketplace", async () => {
+      await expect(
+        VWorldContract.connect(addr1).resellToken(
+          1,
+          ethers.utils.parseEther("1")
+        )
+      )
+        .to.emit(VWorldContract, "LandItemCreated")
+        .withArgs(
+          1,
+          addr1.address,
+          VWorldContract.address,
+          ethers.utils.parseEther("1")
+        );
+
+      // now check NFT land #1
+      const landItem = await VWorldContract.getMintedNFTLandDetails(1);
+
+      // check item id #1
+      expect(landItem[0]).to.equal(1);
+      // check seller to addr 1
+      expect(landItem[1]).to.equal(addr1.address);
+      // check owner array length to 3 index !
+      expect(landItem[2].length).to.equal(3);
+      // check owners index 0 to marketplace address
+      expect(landItem[2][0]).to.equal(VWorldContract.address);
+      // check owners index 1 to addr 1 address
+      expect(landItem[2][1]).to.equal(addr1.address);
+      // check owners index 2 to marketplace address because we list item for sell again
+      expect(landItem[2][2]).to.equal(VWorldContract.address);
+      // check item price to 1 ether
+      expect(landItem[3]).to.equal(ethers.utils.parseEther("1"));
+    });
+  });
+
+  describe("in this section we want test cases that user will get revert, we use details of X , Y Area", () => {
     beforeEach(async () => {
       // in contract we set maximum NFT to mint for 3 items , here we mint 3 items before anything ! and ONLY deployer can mint !
       const uriArray = [

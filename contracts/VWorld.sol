@@ -1,12 +1,17 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
+// we can use https://www.erc721a.org/ , but in PDF file asked me to use openzeppelin ! cost with https://www.erc721a.org/ is more optimized for mint multiple tokens
+
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
-contract VWorld is ERC721URIStorage, Ownable {
+contract VWorld is ERC721URIStorage, Ownable, ReentrancyGuard {
     // using counter to set dedicated id per any land
     using Counters for Counters.Counter;
     Counters.Counter public landIDTracker;
@@ -38,6 +43,15 @@ contract VWorld is ERC721URIStorage, Ownable {
         bool sold;
     }
     mapping(uint256 => LandItem) private IDToLandItem;
+
+    // modifier to check that give id for NFT item is valid or no !
+    modifier validID(uint256 _landID) {
+        require(
+            _landID > 0 && _landID <= landIDTracker.current(),
+            "invalid land item id"
+        );
+        _;
+    }
 
     constructor() ERC721("VWorld", "VW") {}
 
@@ -86,10 +100,12 @@ contract VWorld is ERC721URIStorage, Ownable {
         emit LandItemCreated(_landID, msg.sender, address(this), _price);
     }
 
-    function createMarketSale(uint256 _landID) public payable {
-        // check that land id is valid
-        require(_landID <= landIDTracker.current(), "invalid land item id");
-
+    function createMarketSale(uint256 _landID)
+        public
+        payable
+        nonReentrant
+        validID(_landID)
+    {
         // we find land item price by id from mapping
         uint256 price = IDToLandItem[_landID].price;
         // we find land seller by id from mapping
@@ -116,6 +132,23 @@ contract VWorld is ERC721URIStorage, Ownable {
         emit LandItemBought(_landID, price, seller, msg.sender);
     }
 
+    /* allows someone to resell a token they have purchased */
+    function resellToken(uint256 _landID, uint256 _price) public payable {
+        require(
+            IERC721(address(this)).ownerOf(_landID) == msg.sender,
+            "Only item owner can perform this operation"
+        );
+
+        IDToLandItem[_landID].sold = false;
+        IDToLandItem[_landID].price = _price;
+        IDToLandItem[_landID].seller = payable(msg.sender);
+        IDToLandItem[_landID].owner.push(payable(address(this)));
+
+        _transfer(msg.sender, address(this), _landID);
+
+        emit LandItemCreated(_landID, msg.sender, address(this), _price);
+    }
+
     // /// //////////////////////////////////////////////////////////////////////////////////////////////// GETTERS FUNCTIONS
 
     // get maximum lands that we can mint
@@ -132,8 +165,33 @@ contract VWorld is ERC721URIStorage, Ownable {
     function getLandOwners(uint256 _landID)
         external
         view
+        validID(_landID)
         returns (address payable[] memory)
     {
         return IDToLandItem[_landID].owner;
+    }
+
+    // get all details of # Land NFT item
+    function getMintedNFTLandDetails(uint256 _landID)
+        external
+        view
+        validID(_landID)
+        returns (
+            uint256,
+            address payable,
+            address payable[] memory,
+            uint256,
+            bool
+        )
+    {
+        LandItem memory _LandItem = IDToLandItem[_landID];
+
+        uint256 landID = _LandItem.landID;
+        address payable seller = _LandItem.seller;
+        address payable[] memory owner = _LandItem.owner;
+        uint256 price = _LandItem.price;
+        bool sold = _LandItem.sold;
+
+        return (landID, seller, owner, price, sold);
     }
 }
